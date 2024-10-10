@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -12,20 +13,54 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type server struct {
 	grpc_learn.UnimplementedBlogServiceServer
 }
 
-var collection *mongo.Collection
-
-var blogItem struct {
+type blogItem struct {
 	ID       bson.ObjectID `bson:"_id,omitempty"`
 	AuthorID string        `bson:"author_id"`
 	Content  string        `bson:"content"`
-	Title    string        `bson:"title`
+	Title    string        `bson:"title"`
 }
+
+func (s *server) CreateBlog(ctx context.Context, req *grpc_learn.CreateBlogRequest) (*grpc_learn.CreateBlogResponse, error) {
+	blog := req.GetBlog()
+	data := blogItem{
+		AuthorID: blog.GetAuthorId(),
+		Content:  blog.GetContent(),
+		Title:    blog.GetTitle(),
+	}
+	res, err := collection.InsertOne(ctx, data)
+	if err != nil {
+		return nil, status.Errorf(
+			codes.Internal,
+			fmt.Sprintf("Internal error: %v", err),
+		)
+
+	}
+	oid, ok := res.InsertedID.(bson.ObjectID)
+	if !ok {
+		return nil, status.Errorf(
+			codes.Internal,
+			fmt.Sprintf("Cannot convert to OID"),
+		)
+	}
+	return &grpc_learn.CreateBlogResponse{
+		Blog: &grpc_learn.Blog{
+			Id:       oid.Hex(),
+			AuthorId: blog.GetAuthorId(),
+			Content:  blog.GetContent(),
+			Title:    blog.GetTitle(),
+		},
+	}, nil
+}
+
+var collection *mongo.Collection
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
