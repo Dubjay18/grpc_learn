@@ -36,5 +36,8 @@ func main() {
 
 	<-ch
 	log.Println("Stopping the server")
-
+	s.Stop()
+	log.Println("Closing the listener")
+	lis.Close()
+	log.Println("End of program")
 }
