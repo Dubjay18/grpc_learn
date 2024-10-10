@@ -1,12 +1,16 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 
 	grpc_learn "github.com/Dubjay18/grpc-learn/blogpb"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"google.golang.org/grpc"
 )
 
@@ -14,8 +18,29 @@ type server struct {
 	grpc_learn.UnimplementedBlogServiceServer
 }
 
+var collection *mongo.Collection
+
+var blogItem struct {
+	ID       bson.ObjectID `bson:"_id,omitempty"`
+	AuthorID string        `bson:"author_id"`
+	Content  string        `bson:"content"`
+	Title    string        `bson:"title`
+}
+
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	fmt.Println("Connecting to MongoDB")
+
+	client, err := mongo.Connect(options.Client().ApplyURI("mongodb://localhost:27017"))
+	if err != nil {
+		log.Fatalf("Failed to connect to MongoDB: %v", err)
+	}
+	defer client.Disconnect(nil)
+
+	collection = client.Database("mydb").Collection("blog")
+	fmt.Println("Blog Service Started")
+
 	lis, err := net.Listen("tcp", "0.0.0.0:50051")
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
